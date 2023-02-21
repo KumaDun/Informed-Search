@@ -1,0 +1,98 @@
+class disk(object):
+    def __init__(self, length, n, grid=[]):
+        self.length = length
+        self.n = n
+        self.moves = []
+        if len(grid) == 0:
+            self.grid = [_ for _ in range(n)] + [-1] * (length - n)
+        elif len(grid) == length:
+            self.grid = grid.copy()
+        else:
+            return
+
+    def __lt__(self, other):
+        if not isinstance(other, disk):
+            return False
+        return True
+
+    def __eq__(self, other):
+        if not isinstance(other, disk):
+            return False
+        return self.grid == other.grid
+
+    def __hash__(self):
+        return hash(tuple(self.grid))
+
+    def get_grid(self):
+        return self.grid
+
+    def copy(self):
+        new_moves = copy.deepcopy(self.moves)
+        copy_disk = disk(self.length, self.n, self.grid.copy())
+        copy_disk.moves = new_moves
+        return copy_disk
+
+    def valid_move(self, i, steps):
+        if steps not in [1, 2, -1, -2]:
+            return False
+        if (i + steps) < 0 or (i + steps) >= self.length:
+            return False
+        if self.grid[i] == -1 or self.grid[i + steps] != -1:
+            return False
+        if steps == 2:
+            return self.grid[i + 1] != -1
+        if steps == -2:
+            return self.grid[i - 1] != -1
+        return True
+
+    def move(self, i, steps):
+        self.grid[i + steps] = self.grid[i]
+        self.grid[i] = -1
+        self.moves.append((i, i + steps))
+
+    def is_distinct_solved(self):
+        for elem in self.grid[0:self.length - self.n]:
+            if elem != -1:
+                return False
+        for i in range(self.length - self.n, self.length):
+            if self.grid[i] != self.length - i - 1:
+                return False
+        return True
+
+    def successors(self):
+        for i in range(self.length):
+            for steps in [1, 2, -1, -2]:
+                if self.valid_move(i, steps):
+                    copy_disk = self.copy()
+                    copy_disk.move(i, steps)
+                    yield (i, i + steps), copy_disk
+
+    def heuristic(self):
+        heuristic = 0
+        for i in range(self.length):
+            if self.grid[i] != -1:
+                heuristic += abs(self.length - 1 - self.grid[i] - i)
+        return heuristic / 2 - 1
+
+
+def solve_distinct_disks(length, n):
+    d = disk(length, n)
+    cost_so_far = dict()
+    cost_so_far[d] = 0
+
+    frontier = queue.PriorityQueue()
+    frontier.put((0, d))
+
+    while not frontier.empty():
+        # print(frontier.qsize())
+        current = frontier.get()[1]
+
+        if current.is_distinct_solved():
+            return current.moves
+
+        for move, new_d in current.successors():
+            new_cost = cost_so_far[current] + 1
+            if new_d not in cost_so_far or new_cost < cost_so_far[new_d]:
+                cost_so_far[new_d] = new_cost
+                priority = new_cost + new_d.heuristic()
+                frontier.put((priority, new_d))
