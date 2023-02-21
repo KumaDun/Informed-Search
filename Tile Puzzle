@@ -1,0 +1,211 @@
+def create_tile_puzzle(rows, cols):
+    if (not isinstance(rows, int)) or (not isinstance(cols, int)):
+        raise NotImplementedError
+    board = [[0 for _ in range(cols)] for _ in range(rows)]
+    i = 1
+    for row in range(rows):
+        for col in range(cols):
+            if i < rows * cols:
+                board[row][col] = i
+            i += 1
+    return TilePuzzle(board)
+
+
+def repeated_move(move, moves):
+    if len(moves) == 0:
+        return False
+    match move:
+        case "up":
+            if moves[-1] == 'down':
+                return True
+        case "down":
+            if moves[-1] == 'up':
+                return True
+        case "left":
+            if moves[-1] == 'right':
+                return True
+        case "right":
+            if moves[-1] == 'left':
+                return True
+    return False
+
+
+class TilePuzzle(object):
+    # Required
+    def __init__(self, board):
+        self.board = copy.deepcopy(board)
+        self.rows = len(board)
+        self.cols = len(board[0])
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if (self.board[row][col]) == 0:
+                    self.empty_row = row
+                    self.empty_col = col
+        self.path = []
+
+    def __lt__(self, other):
+        if isinstance(other, TilePuzzle):
+            return True
+        else:
+            raise TypeError
+
+    def __eq__(self, other):
+        if isinstance(other, TilePuzzle):
+            if self.board == other.board:
+                return True
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(tuple(tuple(row) for row in self.board))
+
+    def get_board(self):
+        return self.board
+
+    def perform_move(self, direction):
+        if direction == "up":
+            if self.empty_row > 0:
+                self.board[self.empty_row][self.empty_col] = \
+                    self.board[self.empty_row - 1][self.empty_col]
+                self.board[self.empty_row - 1][self.empty_col] = 0
+                self.empty_row = self.empty_row - 1
+                self.path.append('up')
+                return True
+            else:
+                return False
+        if direction == "down":
+            if self.empty_row < self.rows - 1:
+                self.board[self.empty_row][self.empty_col] = \
+                    self.board[self.empty_row + 1][self.empty_col]
+                self.board[self.empty_row + 1][self.empty_col] = 0
+                self.empty_row = self.empty_row + 1
+                self.path.append('down')
+                return True
+            else:
+                return False
+        if direction == "left":
+            if self.empty_col > 0:
+                self.board[self.empty_row][self.empty_col] = \
+                    self.board[self.empty_row][self.empty_col - 1]
+                self.board[self.empty_row][self.empty_col - 1] = 0
+                self.empty_col = self.empty_col - 1
+                self.path.append('left')
+                return True
+            else:
+                return False
+        if direction == "right":
+            if self.empty_col < self.cols - 1:
+                self.board[self.empty_row][self.empty_col] = \
+                    self.board[self.empty_row][self.empty_col + 1]
+                self.board[self.empty_row][self.empty_col + 1] = 0
+                self.empty_col = self.empty_col + 1
+                self.path.append('right')
+                return True
+            else:
+                return False
+        return False
+
+    def scramble(self, num_moves):
+        moves = [random.choice(['up', 'down', 'left', 'right'])
+                 for _ in range(num_moves)]
+        scramble_result = [self.perform_move(mov) for mov in moves]
+
+    def is_solved(self):
+        i = 1
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.rows * self.cols > i != self.board[row][col]:
+                    return False
+                i += 1
+        if self.board[self.rows - 1][self.cols - 1] != 0:
+            return False
+        return True
+
+    def manhattan_distance(self):
+        manhattan = 0
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.board[row][col] == 0:
+                    correct_row = self.rows - 1
+                    correct_col = self.cols - 1
+                else:
+                    correct_row = (self.board[row][col] - 1) // self.cols
+                    correct_col = (self.board[row][col] - 1) % self.cols
+                manhattan = manhattan + abs(correct_row - row) +\
+                    abs(correct_col - col)
+        return manhattan
+
+    def copy(self):
+        new_board = copy.deepcopy(self.board)
+        new_puzzle = TilePuzzle(new_board)
+        return new_puzzle
+
+    def successors(self):
+        directions = ["up", "down", "left", "right"]
+        for direction in directions:
+            copy_p = self.copy()
+            if copy_p.perform_move(direction):
+                yield direction, copy_p
+
+    def iddfs_helper(self, limit, moves):
+        # print("Recur")
+        if len(moves) <= limit:
+            # print()
+            # print("After moave: ", moves)
+            # print("Current board is: ", self.get_board())
+
+            if self.is_solved():
+                # print("solved")
+                # print(moves)
+                yield moves
+
+            if len(moves) <= limit - 1:
+                for move, new_p in self.successors():
+                    if not repeated_move(move, moves):
+                        new_moves = copy.deepcopy(moves)
+                        new_moves.append(move)
+                        # print()
+                        # print(new_moves)
+                        # print(new_p.get_board())
+                        # print()
+                        for result in \
+                                new_p.iddfs_helper(limit, new_moves):
+                            yield result
+
+    def find_solutions_iddfs(self):
+        flag = True
+        limit = 1
+        while flag:
+            gener = self.iddfs_helper(limit, [])
+            # print(limit)
+            while True:
+                try:
+                    result = next(gener)
+                    yield result
+                    flag = False
+                except StopIteration:
+                    limit += 1
+                    break
+
+    def find_solution_a_star(self):
+        frontier = queue.PriorityQueue()
+        frontier.put((0, self))
+        cost_so_far = {self: 0}
+        while not frontier.empty():
+            # print("frontier size is: ", frontier.qsize())
+            current = frontier.get()[1]
+            # current_p = current[1]
+            # print(current.get_board())
+
+            if current.is_solved():
+                return current.path
+                # print("solved")
+
+            for move, new_p in current.successors():
+                new_cost = cost_so_far.get(current) + 1
+                if new_p not in cost_so_far or new_cost < cost_so_far[new_p]:
+                    cost_so_far[new_p] = new_cost
+                    priority = new_cost + new_p.manhattan_distance()
+                    new_p.path = copy.deepcopy(current.path)
+                    new_p.path.append(move)
+                    frontier.put((priority, new_p))
