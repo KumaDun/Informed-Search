@@ -1,0 +1,154 @@
+class Grid(object):
+    def __init__(self, start, scene) -> None:
+        self.scene = scene
+        self.rows = len(self.scene)
+        self.cols = len(self.scene[0])
+        self.start_row = start[0]
+        self.start_col = start[1]
+        self.path = [tuple([self.start_row, self.start_col])]
+
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, Grid):
+            return False
+        return True
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Grid):
+            return False
+        if self.start_row != other.start_row or\
+                self.start_col != other.start_col:
+            # print("start index not eq")
+            return False
+        # if self.scene != other.scene:
+        #     # print("scene not eq")
+        #     return False
+        return True
+
+    def __hash__(self) -> int:
+        scene_tuple = tuple(tuple(row) for row in self.scene)
+        return hash(tuple((scene_tuple, self.start_row, self.start_col)))
+
+    def get_scene(self) -> list:
+        return self.scene
+
+    def get_start(self) -> tuple:
+        return self.start_row, self.start_col
+
+    def valid_move(self, direction) -> bool:
+        if direction not in ["u", "d", "l", "r", "ul", "ur", "dl", "dr"]:
+            return False
+        if direction == "u":
+            if self.start_row == 0:
+                return False
+            if self.scene[self.start_row - 1][self.start_col]:
+                return False
+        if direction == "d":
+            if self.start_row == self.rows - 1:
+                return False
+            if self.scene[self.start_row + 1][self.start_col]:
+                return False
+        if direction == "l":
+            if self.start_col == 0:
+                return False
+            if self.scene[self.start_row][self.start_col - 1]:
+                return False
+        if direction == "r":
+            if self.start_col == self.cols - 1:
+                return False
+            if self.scene[self.start_row][self.start_col + 1]:
+                return False
+        if direction == "ul":
+            if self.start_row == 0 or self.start_col == 0:
+                return False
+            if self.scene[self.start_row - 1][self.start_col - 1]:
+                return False
+        if direction == "ur":
+            if self.start_row == 0 or self.start_col == self.cols - 1:
+                return False
+            if self.scene[self.start_row - 1][self.start_col + 1]:
+                return False
+        if direction == "dl":
+            if self.start_row == self.rows - 1 or self.start_col == 0:
+                return False
+            if self.scene[self.start_row + 1][self.start_col - 1]:
+                return False
+        if direction == "dr":
+            if self.start_row == self.rows - 1 or\
+                    self.start_col == self.cols - 1:
+                return False
+            if self.scene[self.start_row + 1][self.start_col + 1]:
+                return False
+        return True
+
+    def perform_move(self, direction) -> bool:
+        if not self.valid_move(direction):
+            return False
+
+        if direction == "u":
+            self.start_row = self.start_row - 1
+        if direction == "d":
+            self.start_row = self.start_row + 1
+        if direction == "l":
+            self.start_col = self.start_col - 1
+        if direction == "r":
+            self.start_col = self.start_col + 1
+        if direction == "ul":
+            self.start_row = self.start_row - 1
+            self.start_col = self.start_col - 1
+        if direction == "ur":
+            self.start_row = self.start_row - 1
+            self.start_col = self.start_col + 1
+        if direction == "dl":
+            self.start_row = self.start_row + 1
+            self.start_col = self.start_col - 1
+        if direction == "dr":
+            self.start_row = self.start_row + 1
+            self.start_col = self.start_col + 1
+
+        self.path.append(tuple([self.start_row, self.start_col]))
+        return True
+
+    def copy(self):
+        new_start = (self.start_row, self.start_col)
+        new_grid = Grid(new_start, self.scene)
+        new_grid.path = copy.deepcopy(self.path)
+        return new_grid
+
+    def successors(self):
+        for direction in ["u", "d", "l", "r", "ul", "ur", "dl", "dr"]:
+            new_grid = self.copy()
+            if new_grid.perform_move(direction):
+                yield direction, new_grid
+
+
+def euclidean(start, goal):
+    return math.sqrt(abs(start[0]-goal[0]) ** 2 + abs(start[1] - goal[1] ** 2))
+
+
+def find_path(start, goal, scene):
+    g = Grid(start, scene)
+    cost_so_far = {g: 0}
+
+    frontier = queue.PriorityQueue()
+    frontier.put((0, g))
+
+    while not frontier.empty():
+        # print(frontier.qsize())
+        current = frontier.get()
+        current = current[1]
+        if current.get_start() == goal:
+            # print("solved")
+            return current.path
+
+        for direction, new_g in current.successors():
+            if direction in ['ul', 'ur', 'dl', 'dr']:
+                new_cost = cost_so_far.get(current) + math.sqrt(2)
+            else:
+                new_cost = cost_so_far.get(current) + 1
+            if new_g not in cost_so_far or new_cost < cost_so_far[new_g]:
+                # print(direction)
+                # print(new_g.path)
+                cost_so_far[new_g] = new_cost
+                priority = new_cost + euclidean(new_g.get_start(), goal)
+                
+                .put((priority, new_g))
